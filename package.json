@@ -1,12 +1,11 @@
 {
-  "name": "learn-starter",
+  "name": "bad-api-assignment",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "deploy": "next build && next export && git add out/ && git commit -m \"Deploy gh-pages\" && git subtree push --prefix out origin gh-pages"
+    "build": "next build && next export",
+    "start": "next start"
   },
   "dependencies": {
     "@material-ui/core": "^4.11.1",
@@ -16,8 +15,5 @@
     "react": "16.13.1",
     "react-dom": "16.13.1",
     "swr": "^0.3.9"
-  },
-  "devDependencies": {
-    "babel-plugin-transform-define": "^2.0.0"
   }
 }
