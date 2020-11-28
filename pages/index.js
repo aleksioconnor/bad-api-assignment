@@ -5,13 +5,18 @@ import { useState, useEffect } from 'react'
 import Button from '@material-ui/core/Button'
 import Snackbar from '@material-ui/core/Snackbar'
 import axios from 'axios'
+import Backdrop from '@material-ui/core/Backdrop';
+import CircularProgress from '@material-ui/core/CircularProgress'
 
-const selectCategory = (jackets, shirts, accessories, category) => {
+
+
+const selectCategory = (jackets, shirts, accessories, category, ) => {
   if ( category == 'jackets' ) return jackets
   if ( category == 'shirts' ) return shirts
   if ( category == 'accessories' ) return accessories
   else return null
 }
+
 
 const Alphabet = (props) => {
   
@@ -60,15 +65,15 @@ const ListOfProducts = ({ data, letter, setActiveId, activeId, manufacturers }) 
       activeId == val.id ? setActiveId(null) : setActiveId(val.id)
     }
     return (
-      <div className={activeId==val.id ? 'list-element-active' : 'list-element'} key={val.id} onClick={ ()=>handleClick(val) }><Button>{val.name}</Button>
+      <div className={activeId==val.id ? 'list-element-active' : 'list-element'} key={val.id} onClick={ ()=>handleClick(val) }><Button size="small">{val.name}</Button>
       <div className={activeId==val.id ? 'info-active' : 'info'}>
         <ul>
-        <li key={val.id + 1}>id: {val.id}</li>
-        <li key={val.id + 2}>type: {val.type}</li>
-        <li key={val.id + 3}>price: {val.price}</li>
-        <li key={val.id + 4}>manufacturer: {val.manufacturer}</li>
-        <li key={val.id + 5}>availability: {!(manufacturers[val.manufacturer]) ? 'loading' : manufacturers[val.manufacturer][val.id.toUpperCase()]}</li>
-        <li key={val.id + 6}>colors: {_.map(val.color, color => <span key={val.id + color}>{color} </span>) } </li>
+        <li key={val.id + 1}>ID: {val.id}</li>
+        <li key={val.id + 2}>Type: {val.type}</li>
+        <li key={val.id + 3}>Price: {val.price}$</li>
+        <li key={val.id + 4}>Manufacturer: {val.manufacturer}</li>
+        <li key={val.id + 5}>Availability: {!(manufacturers[val.manufacturer]) ? 'loading' : manufacturers[val.manufacturer][val.id.toUpperCase()]}</li>
+        <li key={val.id + 6}>Colors: {_.map(val.color, color => <span key={val.id + color}>{color} </span>) } </li>
         </ul>
 
       </div>
@@ -113,7 +118,7 @@ export default function Home() {
   const [ error, setError ] = useState(false)
   const [ errorMessage, setErrorMessage ] = useState('')
 
-  const fetcher = (...args) => axios(...args, {headers: {"x-force-error-mode": "all"}}).then(res => {
+  const fetcher = (...args) => axios(...args).then(res => {
     return res.data
   })
   .catch(err => {
@@ -200,13 +205,16 @@ useEffect(() => {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <main>
+      <Backdrop open={!selectCategory(jackets, shirts, accessories, category)}>
+        <CircularProgress color="inherit" />
+      </Backdrop>
         <div>
           <ul className='alphabet'>
             <Alphabet letter={letter} category={category} jackets={jackets} shirts={shirts} accessories={accessories} setLetter={setLetter} />
           </ul>
           <FilterCategory setCategory={setCategory} category={category}/>
         </div>
-      {selectCategory(jackets, shirts, accessories, category) ? <ListOfProducts data={selectCategory(jackets, shirts, accessories, category)} letter={letter} setActiveId={setActiveId} activeId={activeId} manufacturers={manufacturers}/> : <div>loading</div>}
+      {selectCategory(jackets, shirts, accessories, category) ? <ListOfProducts data={selectCategory(jackets, shirts, accessories, category)} letter={letter} setActiveId={setActiveId} activeId={activeId} manufacturers={manufacturers}/> : null}
       <Snackbar open={error} autoHideDuration={6000} onClose={() => {}} message={errorMessage}/>
       </main>
       <style jsx global>{`
