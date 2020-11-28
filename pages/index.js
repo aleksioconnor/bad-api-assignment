@@ -1,195 +1,214 @@
 import Head from 'next/head'
+import useSWR from 'swr'
+import _ from 'lodash'
+import { useState, useEffect } from 'react'
+import Button from '@material-ui/core/Button'
+import Snackbar from '@material-ui/core/Snackbar'
+import axios from 'axios'
+
+const selectCategory = (jackets, shirts, accessories, category) => {
+  if ( category == 'jackets' ) return jackets
+  if ( category == 'shirts' ) return shirts
+  if ( category == 'accessories' ) return accessories
+  else return null
+}
+
+const Alphabet = (props) => {
+  
+  const handeClick = (val) => {
+    props.setLetter(val)
+  }
+
+  const selected = selectCategory(props.jackets, props.shirts, props.accessories, props.category)
+
+  if(selected) {
+    return (
+      _.map(Object.keys(selected), (char) => {
+        return ( 
+          <li className='alpha' key={char} onClick={() => handeClick(char)}><Button variant={char==props.letter ? 'outlined' : 'text'}>{char}</Button> 
+            <style jsx>{`
+              .alpha {
+                display: inline;
+                cursor: pointer;
+              }
+            `}
+            </style>
+          </li>
+        )
+      })
+    )
+  }
+  else return null
+}
+
+const FilterCategory = (props) => {
+  const handleClick = (val) => {
+    props.setCategory(val)
+  }
+  return (
+    <div>
+      <Button variant={'jackets' == props.category ? 'outlined' : 'text'} onClick={() => handleClick('jackets')}>jackets</Button>
+      <Button variant={'shirts' == props.category ? 'outlined' : 'text'} onClick={() => handleClick('shirts')}>shirts</Button>
+      <Button variant={'accessories' == props.category ? 'outlined' : 'text'} onClick={() => handleClick('accessories')}>accessories</Button>
+    </div>
+  )
+}
+
+const ListOfProducts = ({ data, letter, setActiveId, activeId, manufacturers }) => {
+  const list = _.map(data[letter].children, (val) => {
+    const handleClick = (val) => {
+      activeId == val.id ? setActiveId(null) : setActiveId(val.id)
+    }
+    return (
+      <div className={activeId==val.id ? 'list-element-active' : 'list-element'} key={val.id} onClick={ ()=>handleClick(val) }><Button>{val.name}</Button>
+      <div className={activeId==val.id ? 'info-active' : 'info'}>
+        <ul>
+        <li key={val.id + 1}>id: {val.id}</li>
+        <li key={val.id + 2}>type: {val.type}</li>
+        <li key={val.id + 3}>price: {val.price}</li>
+        <li key={val.id + 4}>manufacturer: {val.manufacturer}</li>
+        <li key={val.id + 5}>availability: {!(manufacturers[val.manufacturer]) ? 'loading' : manufacturers[val.manufacturer][val.id.toUpperCase()]}</li>
+        <li key={val.id + 6}>colors: {_.map(val.color, color => <span key={val.id + color}>{color} </span>) } </li>
+        </ul>
+
+      </div>
+      <style jsx>{`
+            .list-element {
+              cursor: pointer;
+            }
+            .list-element-active {
+              cursor: pointer;
+            }
+            .info {
+              display: none;
+            }
+
+          `}
+        </style>
+      </div>
+    )
+  })
+  return (
+    <ul className="list-container">
+      {list}
+      <style jsx>{`
+            .list-container {
+              columns: 5;
+            }
+          `}
+        </style>
+    </ul>
+  )
+}
 
 export default function Home() {
+  const [ letter, setLetter ] = useState('A')
+  const [ jackets, setJackets ] = useState(null)
+  const [ shirts, setShirts ] = useState(null)
+  const [ accessories, setAccessories ] = useState(null)
+  const [ category, setCategory ] = useState('jackets')
+  const [ activeId, setActiveId ] = useState(null)
+  const [ pending, setPending ] = useState([])
+  const [ manufacturers, setManufacturers ] = useState({})
+  const [ error, setError ] = useState(false)
+  const [ errorMessage, setErrorMessage ] = useState('')
+
+  const fetcher = (...args) => axios(...args, {headers: {"x-force-error-mode": "all"}}).then(res => {
+    return res.data
+  })
+  .catch(err => {
+    setError(true)
+    setErrorMessage("Something went wrong with retrieving the data. Please try refreshing the page.")
+    return null
+  })
+
+  useSWR(!jackets ? ['https://bad-api-assignment.reaktor.com/products/jackets'] : null, fetcher, { onSuccess: (data, key, config) => {
+    dataParser(data, setJackets)
+  }})
+
+  useSWR(!shirts ? 'https://bad-api-assignment.reaktor.com/products/shirts' : null, fetcher, { onSuccess: (data, key, config) => {
+    dataParser(data, setShirts)
+  }})
+
+  useSWR(!accessories ? 'https://bad-api-assignment.reaktor.com/products/accessories' : null, fetcher, { onSuccess: (data, key, config) => {
+    const uniqueManufacturers = _.uniq(_.map(data, 'manufacturer'))
+    setPending(uniqueManufacturers)
+    dataParser(data, setAccessories)
+  }})
+
+// get manufacturers once items are retrieved
+useEffect(() => {
+  getManufacturers(pending)
+}, [pending])
+
+// async function for retrieving availability data in parallel
+  const getManufacturers = async (x) => {
+    const newObj = {}
+    const promises = []
+    for (const manufacturer of x) {
+      const response = axios(`https://bad-api-assignment.reaktor.com/availability/${manufacturer}`)
+      .then(res => res.data)
+      .catch()
+      promises.push({response, manufacturer})
+    }
+    Promise.all(promises)
+      .then( async () => {
+        for (const promise of promises) {
+          await promise.response.then(data => {
+            if(data.response.length == 2) {
+              setError(true) 
+              setErrorMessage("Something went wrong with retrieving item availability. Please try refreshing the page.")
+            }
+            newObj[promise.manufacturer] = dataMap(data.response)
+          })
+        }
+        setManufacturers(newObj)
+      })
+}
+
+// parse datapayload value
+  const parseDatapayload = (string) => {
+    if (string) return string.replace(/<\/?[^>]+(>|$)/g, "")
+    else return "information not available"
+  }
+
+  // maps data into key value pairs
+  const dataMap = (data) => {
+    const newObj = {}
+    _.forEach(data, (val) => {
+      newObj[val.id] = parseDatapayload(val.DATAPAYLOAD)
+    })
+    return newObj
+  }
+  
+  // sorts the items into an array of subarrays sorted alphabetically
+  const dataParser = (data, setter) => {
+    const sortedData = _.orderBy(data, ['name'], ['asc'])
+    const alphabeticalSort = sortedData.reduce((r, e ) => {
+      let group = e.name[0]
+      if(!r[group]) r[group] = {group, children: [e]}
+      else r[group].children.push(e);
+      return r;
+    }, {})
+    setter(alphabeticalSort)
+  }
+
   return (
     <div className="container">
       <Head>
         <title>Create Next App</title>
         <link rel="icon" href="/favicon.ico" />
       </Head>
-
       <main>
-        <h1 className="title">
-          Welcome to <a href="https://nextjs.org">Next.js!</a>
-        </h1>
-
-        <p className="description">
-          Get started by editing <code>pages/index.js</code>
-        </p>
-
-        <div className="grid">
-          <a href="https://nextjs.org/docs" className="card">
-            <h3>Documentation &rarr;</h3>
-            <p>Find in-depth information about Next.js features and API.</p>
-          </a>
-
-          <a href="https://nextjs.org/learn" className="card">
-            <h3>Learn &rarr;</h3>
-            <p>Learn about Next.js in an interactive course with quizzes!</p>
-          </a>
-
-          <a
-            href="https://github.com/vercel/next.js/tree/master/examples"
-            className="card"
-          >
-            <h3>Examples &rarr;</h3>
-            <p>Discover and deploy boilerplate example Next.js projects.</p>
-          </a>
-
-          <a
-            href="https://vercel.com/import?filter=next.js&utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className="card"
-          >
-            <h3>Deploy &rarr;</h3>
-            <p>
-              Instantly deploy your Next.js site to a public URL with Vercel.
-            </p>
-          </a>
+        <div>
+          <ul className='alphabet'>
+            <Alphabet letter={letter} category={category} jackets={jackets} shirts={shirts} accessories={accessories} setLetter={setLetter} />
+          </ul>
+          <FilterCategory setCategory={setCategory} category={category}/>
         </div>
+      {selectCategory(jackets, shirts, accessories, category) ? <ListOfProducts data={selectCategory(jackets, shirts, accessories, category)} letter={letter} setActiveId={setActiveId} activeId={activeId} manufacturers={manufacturers}/> : <div>loading</div>}
+      <Snackbar open={error} autoHideDuration={6000} onClose={() => {}} message={errorMessage}/>
       </main>
-
-      <footer>
-        <a
-          href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Powered by{' '}
-          <img src="/vercel.svg" alt="Vercel Logo" className="logo" />
-        </a>
-      </footer>
-
-      <style jsx>{`
-        .container {
-          min-height: 100vh;
-          padding: 0 0.5rem;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-        }
-
-        main {
-          padding: 5rem 0;
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-        }
-
-        footer {
-          width: 100%;
-          height: 100px;
-          border-top: 1px solid #eaeaea;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-        }
-
-        footer img {
-          margin-left: 0.5rem;
-        }
-
-        footer a {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-        }
-
-        a {
-          color: inherit;
-          text-decoration: none;
-        }
-
-        .title a {
-          color: #0070f3;
-          text-decoration: none;
-        }
-
-        .title a:hover,
-        .title a:focus,
-        .title a:active {
-          text-decoration: underline;
-        }
-
-        .title {
-          margin: 0;
-          line-height: 1.15;
-          font-size: 4rem;
-        }
-
-        .title,
-        .description {
-          text-align: center;
-        }
-
-        .description {
-          line-height: 1.5;
-          font-size: 1.5rem;
-        }
-
-        code {
-          background: #fafafa;
-          border-radius: 5px;
-          padding: 0.75rem;
-          font-size: 1.1rem;
-          font-family: Menlo, Monaco, Lucida Console, Liberation Mono,
-            DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New, monospace;
-        }
-
-        .grid {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-wrap: wrap;
-
-          max-width: 800px;
-          margin-top: 3rem;
-        }
-
-        .card {
-          margin: 1rem;
-          flex-basis: 45%;
-          padding: 1.5rem;
-          text-align: left;
-          color: inherit;
-          text-decoration: none;
-          border: 1px solid #eaeaea;
-          border-radius: 10px;
-          transition: color 0.15s ease, border-color 0.15s ease;
-        }
-
-        .card:hover,
-        .card:focus,
-        .card:active {
-          color: #0070f3;
-          border-color: #0070f3;
-        }
-
-        .card h3 {
-          margin: 0 0 1rem 0;
-          font-size: 1.5rem;
-        }
-
-        .card p {
-          margin: 0;
-          font-size: 1.25rem;
-          line-height: 1.5;
-        }
-
-        .logo {
-          height: 1em;
-        }
-
-        @media (max-width: 600px) {
-          .grid {
-            width: 100%;
-            flex-direction: column;
-          }
-        }
-      `}</style>
-
       <style jsx global>{`
         html,
         body {
@@ -198,10 +217,6 @@ export default function Home() {
           font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto,
             Oxygen, Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue,
             sans-serif;
-        }
-
-        * {
-          box-sizing: border-box;
         }
       `}</style>
     </div>
