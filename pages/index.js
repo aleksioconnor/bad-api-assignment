@@ -206,10 +206,10 @@ export default function Home() {
     dataParser(data, setAccessories)
   }})
 
-// get manufacturers once products are retrieved. useEffect is fired when pending is changed by earlier requests
-useEffect(() => {
-  getManufacturers(pending)
-}, [pending])
+  // get manufacturers once products are retrieved. useEffect is fired when pending is changed by earlier requests
+  useEffect(() => {
+    getManufacturers(pending)
+  }, [pending])
 
   /**
    * Asynchronous function that creates as many requests as is needed in parallel to retrieve avaialbility data from api endpoint.
