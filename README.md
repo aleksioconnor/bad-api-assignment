@@ -6,7 +6,7 @@ Solution for Reaktor's junior developer assignment.
 
 ## Getting Started
 
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
+These instructions will get you a copy of the project up and running on your local machine.
 
 ### Prerequisites
 
@@ -34,6 +34,7 @@ npm run dev
 
 ## Built With
 
-* [Next.js](https://nextjs.org/) - The web framework used
+* [Next.js](https://nextjs.org/) - React framework
 * [Material-ui](https://material-ui.com/) - Styled react components
+* [Netlify](https://netlify.com/) - Hosted on Netlify
 
